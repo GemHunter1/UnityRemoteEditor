@@ -136,7 +136,15 @@ public class ClientSide : MonoBehaviour
 
                                 if (!tex.isReadable)
                                 {
-                                    StartCoroutine(AsyncReadbackTexture(msgTex, tex));
+                                    if (SystemInfo.IsFormatSupported(tex.graphicsFormat, UnityEngine.Experimental.Rendering.FormatUsage.ReadPixels))
+                                    {
+                                        StartCoroutine(AsyncReadbackTexture(msgTex, tex));
+                                    }
+                                    else
+                                    {
+                                        Debug.LogWarning($"Texture {tex.name} with format {tex.format} does not support GPU readback");
+                                        msg.textures.Add(msgTex);
+                                    }
                                 }
                                 else
                                 {
@@ -178,9 +186,7 @@ public class ClientSide : MonoBehaviour
 
     private IEnumerator AsyncReadbackTexture(Message.MsgTexture2D msgTex, Texture2D tex)
     {
-        AsyncGPUReadbackRequest request = default;
-
-        request = AsyncGPUReadback.Request(tex);
+        AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(tex);
 
         while (!request.hasError && !request.done)
             yield return null;

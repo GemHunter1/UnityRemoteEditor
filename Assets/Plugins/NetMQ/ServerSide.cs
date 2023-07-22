@@ -131,93 +131,83 @@ public class ServerSide : MonoBehaviour
                     go = new GameObject(mgo.name);
                     t = go.transform;
                     remoteObjects.Add(mgo.instanceID, t);
-
-                    //if (mgo.meshInstanceID != 0)
-                    //{
-                    //    if (remoteMeshes.TryGetValue(mgo.meshInstanceID, out Mesh mesh))
-                    //    {
-                    //        MeshFilter meshFilter = go.AddComponent<MeshFilter>();  
-                    //        MeshRenderer meshRenderer = go.AddComponent<MeshRenderer>();
-
-                    //        meshFilter.sharedMesh = mesh;
-
-                    //        if (!string.IsNullOrWhiteSpace(mgo.shaderName))
-                    //        {
-                    //            Shader shader = Shader.Find(mgo.shaderName);
-                    //            if (shader == null)
-                    //                shader = Shader.Find("Diffuse");
-                    //            meshRenderer.material = new Material(shader);
-                    //        }
-
-                    //        if (mgo.mainTextureInstanceID != 0)
-                    //        {
-                    //            if (remoteTextures.TryGetValue(mgo.mainTextureInstanceID, out Texture2D tex))
-                    //            {
-                    //                meshRenderer.sharedMaterial.mainTexture = tex;
-                    //            }    
-                    //        }
-                    //    }
-                    //}
                 }
                 else
                 {
                     go = t.gameObject;
                 }
 
-                if (mgo.meshInstanceID != 0)
                 {
-                    if (remoteMeshes.TryGetValue(mgo.meshInstanceID, out Mesh mesh))
+                    if (mgo.TryGetComponent<Message.MsgMeshFilter>(out var msgMeshFilter))
                     {
-                        if (!go.TryGetComponent(out MeshFilter meshFilter))
-                            meshFilter = go.AddComponent<MeshFilter>();
-
-                        if (!meshFilter.sharedMesh || !meshFilter.sharedMesh.name.StartsWith(mgo.meshInstanceID.ToString()))
-                            meshFilter.sharedMesh = mesh;
-
-                        if (mgo.mainTextureInstanceID == 0)
+                        if (remoteMeshes.TryGetValue(msgMeshFilter.meshInstanceID, out Mesh mesh))
                         {
-                            if (!go.TryGetComponent(out MeshRenderer meshRenderer))
-                                meshRenderer = go.AddComponent<MeshRenderer>();
+                            if (!go.TryGetComponent(out MeshFilter meshFilter))
+                                meshFilter = go.AddComponent<MeshFilter>();
 
-                            if (!meshRenderer.sharedMaterial || meshRenderer.sharedMaterial.name != "(None)")
-                            {
-                                meshRenderer.material = new Material(Shader.Find("Diffuse"));
-                                meshRenderer.sharedMaterial.name = "(None)";
-                            }
+                            if (!meshFilter.sharedMesh || !meshFilter.sharedMesh.name.StartsWith(msgMeshFilter.meshInstanceID.ToString()))
+                                meshFilter.sharedMesh = mesh;
                         }
                     }
                 }
-                if (mgo.mainTextureInstanceID != 0)
                 {
-                    if (remoteTextures.TryGetValue(mgo.mainTextureInstanceID, out Texture2D tex))
+                    if (mgo.TryGetComponent<Message.MsgMeshRenderer>(out var msgMeshRenderer))
                     {
                         if (!go.TryGetComponent(out MeshRenderer meshRenderer))
                             meshRenderer = go.AddComponent<MeshRenderer>();
 
-                        Shader shader = Shader.Find(mgo.shaderName);
+                        Shader shader = Shader.Find(msgMeshRenderer.shader);
                         if (shader == null)
                             shader = Shader.Find("Diffuse");
                         meshRenderer.material = new Material(shader);
-                        meshRenderer.sharedMaterial.name = mgo.shaderName;
+                        meshRenderer.sharedMaterial.name = msgMeshRenderer.shader;
 
-                        meshRenderer.sharedMaterial.mainTexture = tex;
-                    }
-                    else
-                    {
-                        if (!go.TryGetComponent(out MeshRenderer meshRenderer))
-                            meshRenderer = go.AddComponent<MeshRenderer>();
 
-                        if (!meshRenderer.sharedMaterial || meshRenderer.sharedMaterial.name != "(None)")
+                        if (remoteTextures.TryGetValue(msgMeshRenderer.mainTextureInstanceID, out Texture2D tex))
                         {
-                            meshRenderer.material = new Material(Shader.Find("Diffuse"));
-                            meshRenderer.sharedMaterial.name = "(None)";
+                            meshRenderer.sharedMaterial.mainTexture = tex;
                         }
+                        else if (meshRenderer.sharedMaterial.HasTexture("_MainTex"))
+                        {
+                            meshRenderer.sharedMaterial.mainTexture = tex;
+                        }
+                    }
+                }
+                {
+                    if (mgo.TryGetComponent<Message.MsgSkinnedMesh>(out var msgSkinnedMesh))
+                    {
+                        if (!go.TryGetComponent(out SkinnedMeshRenderer skinnedMesh))
+                            skinnedMesh = go.AddComponent<SkinnedMeshRenderer>();
+
+                        Shader shader = Shader.Find(msgSkinnedMesh.shader);
+                        if (shader == null)
+                            shader = Shader.Find("Diffuse");
+                        skinnedMesh.material = new Material(shader);
+                        skinnedMesh.sharedMaterial.name = msgSkinnedMesh.shader;
+
+                        if (remoteTextures.TryGetValue(msgSkinnedMesh.mainTextureInstanceID, out Texture2D tex))
+                        {
+                            skinnedMesh.sharedMaterial.mainTexture = tex;
+                        }
+                        else if (skinnedMesh.sharedMaterial.HasTexture("_MainTex"))
+                        {
+                            skinnedMesh.sharedMaterial.mainTexture = tex;
+                        }
+
+                        if (msgSkinnedMesh.rootBoneInstanceID != 0 && remoteObjects.ContainsKey(msgSkinnedMesh.rootBoneInstanceID))
+                            skinnedMesh.rootBone = remoteObjects[msgSkinnedMesh.rootBoneInstanceID];
+                        else
+                            skinnedMesh.rootBone = null;
                     }
                 }
 
                 if (mgo.parentInstanceID != 0 && remoteObjects.ContainsKey(mgo.parentInstanceID))
                     t.parent = remoteObjects[mgo.parentInstanceID];
-                else t.parent = null;
+                else 
+                    t.parent = null;
+
+                if (go.activeSelf != mgo.activeSelf)
+                    go.SetActive(mgo.activeSelf);
 
                 t.position = mgo.position;
                 t.rotation = mgo.rotation;
@@ -227,6 +217,7 @@ public class ServerSide : MonoBehaviour
             foreach (int idToRemove in allIds)
             {
                 Destroy(remoteObjects[idToRemove].gameObject);
+                remoteObjects.Remove(idToRemove);
             }
         }
 

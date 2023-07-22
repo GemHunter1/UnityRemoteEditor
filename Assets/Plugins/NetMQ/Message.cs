@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Unity.Collections;
@@ -35,13 +36,13 @@ public class Message : IBinarySerializable
         public int instanceID;
         public int parentInstanceID;
 
+        public bool activeSelf;
+
         public Vector3 position;
         public Quaternion rotation;
         public Vector3 localScale;
 
-        public int meshInstanceID;
-        public int mainTextureInstanceID;
-        public string shaderName;
+        public List<MsgComponent> components = new List<MsgComponent>();
 
         public MsgGameObject() { }
 
@@ -50,25 +51,29 @@ public class Message : IBinarySerializable
             name = t.name;
             instanceID = t.GetInstanceID();
             parentInstanceID = t.parent == null ? 0 : t.parent.GetInstanceID();
+
+            activeSelf = t.gameObject.activeSelf;
+
             position = t.position;
             rotation = t.rotation;
             localScale = t.localScale;
 
-            if (t.gameObject.TryGetComponent(out MeshFilter meshFilter) && meshFilter.sharedMesh)
-                meshInstanceID = meshFilter.sharedMesh.GetInstanceID();
-            else
-                meshInstanceID = 0;
+            if (t.gameObject.TryGetComponent(out MeshFilter meshFilter))
+                components.Add(new MsgMeshFilter(meshFilter));
 
-            if (t.gameObject.TryGetComponent(out MeshRenderer meshRenderer) && meshRenderer.sharedMaterial && meshRenderer.sharedMaterial.HasTexture("_MainTex") && meshRenderer.sharedMaterial.mainTexture)
-            {
-                mainTextureInstanceID = meshRenderer.sharedMaterial.mainTexture.GetInstanceID();
-                shaderName = meshRenderer.sharedMaterial.shader.name;
-            }
-            else
-            {
-                mainTextureInstanceID = 0;
-                shaderName = "";
-            }
+            if (t.gameObject.TryGetComponent(out MeshRenderer meshRenderer))
+                components.Add(new MsgMeshRenderer(meshRenderer));
+        }
+
+        public T GetComponent<T>() where T : MsgComponent
+        {
+            return (T)components.FirstOrDefault(x => x is T);
+        }
+
+        public bool TryGetComponent<T>(out T component) where T : MsgComponent, new()
+        {
+            component = (T)components.FirstOrDefault(x => x is T);
+            return component != null;
         }
 
         public void Serialize(BinaryWriter writer)
@@ -77,13 +82,13 @@ public class Message : IBinarySerializable
             writer.Write(instanceID);
             writer.Write(parentInstanceID);
 
+            writer.Write(activeSelf);
+
             writer.Write(position);
             writer.Write(rotation);
             writer.Write(localScale);
 
-            writer.Write(meshInstanceID);
-            writer.Write(mainTextureInstanceID);
-            writer.Write(shaderName);
+            writer.Write(components);
         }
 
         public void Deserialize(BinaryReader reader)
@@ -92,13 +97,125 @@ public class Message : IBinarySerializable
             instanceID = reader.ReadInt32();
             parentInstanceID = reader.ReadInt32();
 
+            activeSelf = reader.ReadBoolean();
+
             position = reader.ReadVector3();
             rotation = reader.ReadQuaternion();
             localScale = reader.ReadVector3();
 
+            components = reader.ReadSerializableList(MsgComponent.Deserializer);
+        }
+    }
+
+    [Serializable]
+    public abstract class MsgComponent : IBinarySerializable
+    {
+        public MsgComponent() { }
+
+        public static MsgComponent Deserializer(BinaryReader reader)
+        {
+            string type = reader.ReadString();
+            MsgComponent msgComp;
+            switch(type)
+            {
+                case nameof(MsgMeshFilter): 
+                    msgComp = new MsgMeshFilter();
+                    break;
+                case nameof(MsgMeshRenderer): 
+                    msgComp = new MsgMeshRenderer(); 
+                    break;
+                case nameof(MsgSkinnedMesh): 
+                    msgComp = new MsgSkinnedMesh(); 
+                    break;
+                default:
+                    throw new Exception("Unknown component type: " + type);
+            }
+            msgComp.Deserialize(reader);
+            return msgComp;
+        }
+
+        public abstract void Serialize(BinaryWriter writer);
+        public abstract void Deserialize(BinaryReader reader);
+    }
+
+    public class MsgMeshFilter : MsgComponent
+    {
+        public int meshInstanceID;
+
+        public MsgMeshFilter() { }
+
+        public MsgMeshFilter(MeshFilter meshFilter) 
+        {
+            meshInstanceID = meshFilter.sharedMesh ? meshFilter.sharedMesh.GetInstanceID() : 0;
+        }
+
+        public override void Serialize(BinaryWriter writer)
+        {
+            writer.Write(nameof(MsgMeshFilter));
+            writer.Write(meshInstanceID);
+        }
+
+        public override void Deserialize(BinaryReader reader)
+        {
             meshInstanceID = reader.ReadInt32();
+        }
+    }
+
+    public class MsgMeshRenderer : MsgComponent
+    {
+        public int mainTextureInstanceID;
+        public string shader;
+
+        public MsgMeshRenderer()
+        {
+
+        }
+
+        public MsgMeshRenderer(MeshRenderer meshRenderer)
+        {
+            if (meshRenderer.sharedMaterial)
+            {
+                shader = meshRenderer.sharedMaterial.shader.name;
+                if (meshRenderer.sharedMaterial.HasTexture("_MainTex") && meshRenderer.sharedMaterial.mainTexture)
+                {
+                    mainTextureInstanceID = meshRenderer.sharedMaterial.mainTexture.GetInstanceID();
+                }
+            }
+        }
+
+        public override void Serialize(BinaryWriter writer)
+        {
+            writer.Write(nameof(MsgMeshRenderer));
+            writer.Write(mainTextureInstanceID);
+            writer.Write(shader);
+        }
+
+        public override void Deserialize(BinaryReader reader)
+        {
             mainTextureInstanceID = reader.ReadInt32();
-            shaderName = reader.ReadString();
+            shader = reader.ReadString();
+        }
+    }
+
+    public class MsgSkinnedMesh : MsgComponent
+    {
+        public int mainTextureInstanceID;
+        public int rootBoneInstanceID;
+        public string shader;
+
+        public override void Serialize(BinaryWriter writer)
+        {
+            writer.Write(nameof(MsgSkinnedMesh));
+            writer.Write(mainTextureInstanceID);
+            writer.Write(rootBoneInstanceID);
+            writer.Write(shader);
+        }
+
+        public override void Deserialize(BinaryReader reader)
+        {
+            mainTextureInstanceID = reader.ReadInt32();
+            rootBoneInstanceID = reader.ReadInt32();
+            shader = reader.ReadString();
         }
     }
 

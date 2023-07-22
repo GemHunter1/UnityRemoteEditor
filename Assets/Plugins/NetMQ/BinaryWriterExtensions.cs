@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -105,7 +106,7 @@ public static class BinaryWriterExtensions
             writer.Write(item);
     }
 
-    public static void Write<T>(this BinaryWriter writer, IEnumerable<T> collection) where T : IBinarySerializable, new()
+    public static void Write<T>(this BinaryWriter writer, IEnumerable<T> collection) where T : IBinarySerializable
     {
         if (collection == null)
         {
@@ -231,6 +232,18 @@ public static class BinaryWriterExtensions
             var item = new T();
             list.Add(item);
             item.Deserialize(reader);
+        }
+        return list;
+    }
+
+    public static List<T> ReadSerializableList<T>(this BinaryReader reader, Func<BinaryReader, T> deserializer) where T : IBinarySerializable
+    {
+        int length = reader.ReadInt32();
+        var list = new List<T>(length);
+        for (int i = 0; i < length; i++)
+        {
+            var item = deserializer.Invoke(reader);
+            list.Add(item);
         }
         return list;
     }
