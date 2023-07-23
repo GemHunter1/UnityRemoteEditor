@@ -115,6 +115,18 @@ public class ServerSide : MonoBehaviour
                     else
                     {
                         //TODO: try to find texture in project by name
+#if UNITY_EDITOR
+                        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:texture2D " + msgTex.name);
+                        if (guids.Length > 0)
+                        {
+                            string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guids.First());
+                            Texture2D tex = (Texture2D)UnityEditor.AssetDatabase.LoadAssetAtPath(assetPath, typeof(Texture2D));
+                            if (tex)
+                            {
+                                remoteTextures.Add(msgTex.instanceID, tex);
+                            }
+                        }
+#endif
                     }
                 }
             }
