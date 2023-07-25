@@ -19,6 +19,7 @@ namespace RemoteEditor
         internal string address;
 
         private ConcurrentQueue<byte[]> queue = new ConcurrentQueue<byte[]>();
+        private BlockingCollection<byte[]> sendQueue = new BlockingCollection<byte[]>(new ConcurrentQueue<byte[]>());
 
         internal Dictionary<int, Transform> remoteObjects = new Dictionary<int, Transform>();
         internal Dictionary<int, Mesh> remoteMeshes = new Dictionary<int, Mesh>();
@@ -35,13 +36,25 @@ namespace RemoteEditor
             try
             {
                 HashSet<RoutingKey> clients = new HashSet<RoutingKey>();
+                RoutingKey lastClient;
 
                 using (server = new RouterSocket(address.Split(':').First() + "://127.0.0.1:" + address.Split(':').Last()))
                 {
+                    Task sendTask = Task.Factory.StartNew(() =>
+                    {
+                        while (remoteEditor.isRunning)
+                        {
+                            byte[] msgArr = sendQueue.Take();
+                            
+                            server.SendMoreFrame(lastClient);
+                            server.SendFrame(msgArr);
+                        }
+                    }, remoteEditor.cts.Token);
+
                     while (remoteEditor.isRunning)
                     {
                         var (routingKey, more) = await server.ReceiveRoutingKeyAsync();
-
+                        lastClient = routingKey;
                         if (!clients.Contains(routingKey))
                         {
                             clients.Add(routingKey);
@@ -83,6 +96,14 @@ namespace RemoteEditor
 
         private void FixedUpdate()
         {
+            int currentlyMovingTransformInstanceID = 0;
+            if (remoteEditor.isRunning && TransformRequest.GetChanges(out TransformRequest moveReq))
+            {
+                currentlyMovingTransformInstanceID = moveReq.gameObjectInstanceID;
+                sendQueue.Add(BinaryWriterExtensions.Serialize(moveReq));
+                //Debug.Log("Send move req:" + moveReq.gameObjectInstanceID + " " + moveReq.position);
+            }
+
             while (remoteEditor.isRunning && queue.TryDequeue(out byte[] msgJson))
             {
                 Message msg = BinaryWriterExtensions.Deserialize<Message>(msgJson);
@@ -122,6 +143,7 @@ namespace RemoteEditor
                     if (!remoteObjects.TryGetValue(mgo.instanceID, out t))
                     {
                         go = new GameObject(mgo.name);
+                        go.AddComponent<RemoteInstanceID>().instanceID = mgo.instanceID;
                         t = go.transform;
                         remoteObjects.Add(mgo.instanceID, t);
                     }
@@ -140,9 +162,12 @@ namespace RemoteEditor
                     if (go.activeSelf != mgo.activeSelf)
                         go.SetActive(mgo.activeSelf);
 
-                    t.position = mgo.position;
-                    t.rotation = mgo.rotation;
-                    t.localScale = mgo.localScale;
+                    if (mgo.instanceID != currentlyMovingTransformInstanceID)
+                    {
+                        t.position = mgo.position;
+                        t.rotation = mgo.rotation;
+                        t.localScale = mgo.localScale;
+                    }
                 }
 
                 foreach (int idToRemove in allIds)
@@ -152,6 +177,8 @@ namespace RemoteEditor
                 }
             }
 
+            if (remoteEditor.isRunning)
+                TransformRequest.ResetTransformChangesMark();
         }
     }
 }

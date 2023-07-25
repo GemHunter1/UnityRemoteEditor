@@ -34,6 +34,9 @@ namespace RemoteEditor
         private HashSet<int> alreadySentTextures = new HashSet<int>();
 
         private Queue<MsgTexture2D> asyncQueuedTextures = new Queue<MsgTexture2D>();
+        private Queue<TransformRequest> queuedTransformRequests = new Queue<TransformRequest>();
+
+        private Dictionary<int, Transform> localTransforms = new Dictionary<int, Transform>();
 
         internal void Setup(RemoteEditor remoteEditor, string address)
         {
@@ -72,9 +75,13 @@ namespace RemoteEditor
                     isClientConnected = true;
                     while (remoteEditor.isRunning)
                     {
-                        var (message, more) = await client.ReceiveFrameStringAsync();
+                        var (message, more) = await client.ReceiveFrameBytesAsync();
 
-                        Debug.Log("Client: " + message);
+                        if (message.Length > 0 && message[0] == 42)
+                        {
+                            TransformRequest tr = BinaryWriterExtensions.Deserialize<TransformRequest>(message);
+                            queuedTransformRequests.Enqueue(tr);
+                        }
                     }
                     isClientConnected = false;
 
@@ -100,6 +107,17 @@ namespace RemoteEditor
 
         private void FixedUpdate()
         {
+            while (remoteEditor.isRunning && queuedTransformRequests.TryDequeue(out TransformRequest trReq))
+            {
+                if (localTransforms.TryGetValue(trReq.gameObjectInstanceID, out Transform t))
+                {
+                    if (t)
+                        trReq.Apply(t);
+                    else 
+                        localTransforms.Remove(trReq.gameObjectInstanceID);
+                }
+            }
+
             if (remoteEditor.isRunning && isClientConnected && client != null)
             {
                 if (queue.Count > 5) return;
@@ -122,7 +140,12 @@ namespace RemoteEditor
                         Transform t = stack.Pop();
 
                         //process game object
-                        msg.gameObjects.Add(new MsgGameObject(t));
+                        var mgo = new MsgGameObject(t);
+                        msg.gameObjects.Add(mgo);
+
+                        if (!localTransforms.ContainsKey(mgo.instanceID))
+                            localTransforms[mgo.instanceID] = t;
+
                         {
                             if (t.gameObject.TryGetComponent(out MeshFilter meshFilter) && meshFilter.sharedMesh)
                             {
@@ -134,6 +157,7 @@ namespace RemoteEditor
                                 }
                             }
                         }
+
                         {
                             if (t.gameObject.TryGetComponent(out MeshRenderer meshRenderer)
                                 && meshRenderer.sharedMaterial && meshRenderer.sharedMaterial.HasTexture("_MainTex") && meshRenderer.sharedMaterial.mainTexture && meshRenderer.sharedMaterial.mainTexture is Texture2D)

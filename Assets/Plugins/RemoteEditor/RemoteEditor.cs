@@ -27,6 +27,7 @@ namespace RemoteEditor
 
         public const string HelloMessage = "Hello";
         public const string WelcomeMessage = "Welcome";
+        public const string ByeMessage = "Bye";
 
         private ServerSide serverSide;
         private ClientSide clientSide;

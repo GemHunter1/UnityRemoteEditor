@@ -15,6 +15,8 @@ namespace RemoteEditor
             using (MemoryStream ms = new MemoryStream())
             using (BinaryWriter writer = new BinaryWriter(ms))
             {
+                //todo: proper type serialization and check
+                writer.Write((byte)42);
                 serializable.Serialize(writer);
                 return ms.ToArray();
             }
@@ -26,6 +28,7 @@ namespace RemoteEditor
             using (BinaryReader reader = new BinaryReader(ms))
             {
                 T item = new T();
+                Debug.Assert(reader.ReadByte() == 42, "First byte of serialized object is not 42!");
                 item.Deserialize(reader);
                 return item;
             }
