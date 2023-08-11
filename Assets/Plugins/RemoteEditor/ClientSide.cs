@@ -56,7 +56,7 @@ namespace RemoteEditor
                     while (remoteEditor.isRunning && !isClientConnected)
                     {
                         var (message, more) = await client.ReceiveFrameStringAsync();
-                        Debug.Log("Received from server: " + message);
+                        Debug.Log("[URE] Received from server: " + message);
                         if (message == RemoteEditor.WelcomeMessage)
                         {
                             isClientConnected = true;
@@ -91,7 +91,7 @@ namespace RemoteEditor
                     //    var (message, more) = await client.ReceiveFrameStringAsync();
 
                     //    // TODO: process reply
-                    //    Debug.Log("Client received: " + message);
+                    //    Debug.Log("[URE] Client received: " + message);
 
                     //    await Task.Delay(100);
                     //}
@@ -100,7 +100,7 @@ namespace RemoteEditor
             catch (Exception ex)
             {
                 isClientConnected = false;
-                Debug.LogException(ex);
+                Debug.LogError("[URE] " + ex);
                 throw;
             }
         }
@@ -177,7 +177,7 @@ namespace RemoteEditor
                                         }
                                         else
                                         {
-                                            Debug.LogWarning($"Texture {tex.name} with format {tex.format} does not support GPU readback");
+                                            Debug.LogWarning($"[URE] Texture {tex.name} with format {tex.format} does not support GPU readback");
                                             msg.textures.Add(msgTex);
                                         }
                                     }

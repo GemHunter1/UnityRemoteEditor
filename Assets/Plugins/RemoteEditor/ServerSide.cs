@@ -53,23 +53,30 @@ namespace RemoteEditor
 
                     while (remoteEditor.isRunning)
                     {
-                        var (routingKey, more) = await server.ReceiveRoutingKeyAsync();
-                        lastClient = routingKey;
-                        if (!clients.Contains(routingKey))
+                        try
                         {
-                            clients.Add(routingKey);
-                            var (message, _) = await server.ReceiveFrameStringAsync();
-                            if (message == RemoteEditor.HelloMessage)
+                            var (routingKey, more) = await server.ReceiveRoutingKeyAsync();
+                            lastClient = routingKey;
+                            if (!clients.Contains(routingKey))
                             {
-                                Debug.Log($"Received from {routingKey} frame : {message}");
-                                server.SendMoreFrame(routingKey);
-                                server.SendFrame(RemoteEditor.WelcomeMessage);
+                                clients.Add(routingKey);
+                                var (message, _) = await server.ReceiveFrameStringAsync();
+                                if (message == RemoteEditor.HelloMessage)
+                                {
+                                    Debug.Log($"[URE] Received from {routingKey} frame : {message}");
+                                    server.SendMoreFrame(routingKey);
+                                    server.SendFrame(RemoteEditor.WelcomeMessage);
+                                }
+                            }
+                            else
+                            {
+                                var (message, _) = await server.ReceiveFrameBytesAsync();
+                                queue.Enqueue(message);
                             }
                         }
-                        else
+                        catch(Exception ex)
                         {
-                            var (message, _) = await server.ReceiveFrameBytesAsync();
-                            queue.Enqueue(message);
+                            Debug.LogError("[URE] " + ex);
                         }
                     }
 

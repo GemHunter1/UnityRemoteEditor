@@ -23,10 +23,13 @@ namespace RemoteEditor.Messages
         {
             name = mesh.name;
             instanceID = mesh.GetInstanceID();
-            vertices = mesh.vertices.ToArray();
-            triangles = mesh.triangles.ToArray();
-            normals = mesh.normals.ToArray();
-            uv = mesh.uv.ToArray();
+            if (mesh.isReadable)
+            {
+                vertices = mesh.vertices.ToArray();
+                triangles = mesh.triangles.ToArray();
+                normals = mesh.normals.ToArray();
+                uv = mesh.uv.ToArray();
+            }
         }
 
         public Mesh Create()
