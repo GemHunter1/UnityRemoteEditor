@@ -24,6 +24,8 @@ namespace RemoteEditor
         internal RemoteEditor remoteEditor;
         internal string address;
 
+        private RemoteEditor.UpdateMethod updateMethod;
+
         private BlockingCollection<byte[]> queue = new BlockingCollection<byte[]>(new ConcurrentQueue<byte[]>());
 
         private int[] sizeAverageBuffer = new int[200];
@@ -38,10 +40,11 @@ namespace RemoteEditor
 
         private Dictionary<int, Transform> localTransforms = new Dictionary<int, Transform>();
 
-        internal void Setup(RemoteEditor remoteEditor, string address)
+        internal void Setup(RemoteEditor remoteEditor, string address, RemoteEditor.UpdateMethod updateMethod)
         {
             this.remoteEditor = remoteEditor;
             this.address = address;
+            this.updateMethod = updateMethod;
         }
 
         internal async Task ClientAsync()
@@ -52,6 +55,7 @@ namespace RemoteEditor
                 {
                     isClientConnected = false;
 
+                    Debug.Log("[URE] Dealer socket created, sending hello message");
                     client.SendFrame(RemoteEditor.HelloMessage);
                     while (remoteEditor.isRunning && !isClientConnected)
                     {
@@ -105,7 +109,19 @@ namespace RemoteEditor
             }
         }
 
+        private void Update()
+        {
+            if (updateMethod == RemoteEditor.UpdateMethod.Update)
+                ClientUpdate();
+        }
+
         private void FixedUpdate()
+        {
+            if (updateMethod == RemoteEditor.UpdateMethod.FixedUpdate)
+                ClientUpdate();
+        }
+
+        private void ClientUpdate()
         {
             while (remoteEditor.isRunning && queuedTransformRequests.TryDequeue(out TransformRequest trReq))
             {

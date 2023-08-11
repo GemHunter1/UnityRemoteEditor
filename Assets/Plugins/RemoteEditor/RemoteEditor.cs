@@ -20,6 +20,13 @@ namespace RemoteEditor
         }
         public ServerFlags Mode;
 
+        public enum UpdateMethod
+        {
+            FixedUpdate,
+            Update,
+        }
+        public UpdateMethod updateMethod;
+
         public string address = "tcp://127.0.0.1:5556";
 
         public bool isRunning = false;
@@ -47,12 +54,12 @@ namespace RemoteEditor
             if (Mode.HasFlag(ServerFlags.Server))
             {
                 serverSide = gameObject.AddComponent<ServerSide>();
-                serverSide.Setup(this, address);
+                serverSide.Setup(this, address, updateMethod);
             }
             if (Mode.HasFlag(ServerFlags.Client))
             {
                 clientSide = gameObject.AddComponent<ClientSide>();
-                clientSide.Setup(this, address);
+                clientSide.Setup(this, address, updateMethod);
             }
 
             Task.Factory.StartNew(() =>

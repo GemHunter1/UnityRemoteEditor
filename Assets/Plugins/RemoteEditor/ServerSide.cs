@@ -17,7 +17,7 @@ namespace RemoteEditor
         private RouterSocket server;
         internal RemoteEditor remoteEditor;
         internal string address;
-
+        private RemoteEditor.UpdateMethod updateMethod;
         private ConcurrentQueue<byte[]> queue = new ConcurrentQueue<byte[]>();
         private BlockingCollection<byte[]> sendQueue = new BlockingCollection<byte[]>(new ConcurrentQueue<byte[]>());
 
@@ -25,10 +25,11 @@ namespace RemoteEditor
         internal Dictionary<int, Mesh> remoteMeshes = new Dictionary<int, Mesh>();
         internal Dictionary<int, Texture2D> remoteTextures = new Dictionary<int, Texture2D>();
 
-        internal void Setup(RemoteEditor remoteEditor, string address)
+        internal void Setup(RemoteEditor remoteEditor, string address, RemoteEditor.UpdateMethod updateMethod)
         {
             this.remoteEditor = remoteEditor;
             this.address = address;
+            this.updateMethod = updateMethod;
         }
 
         internal async Task ServerAsync()
@@ -101,7 +102,19 @@ namespace RemoteEditor
             }
         }
 
+        private void Update()
+        {
+            if (updateMethod == RemoteEditor.UpdateMethod.Update)
+                ServerUpdate();
+        }
+
         private void FixedUpdate()
+        {
+            if (updateMethod == RemoteEditor.UpdateMethod.FixedUpdate)
+                ServerUpdate();
+        }
+
+        private void ServerUpdate()
         {
             int currentlyMovingTransformInstanceID = 0;
             if (remoteEditor.isRunning && TransformRequest.GetChanges(out TransformRequest moveReq))
