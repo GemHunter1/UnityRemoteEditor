@@ -331,8 +331,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Mode: 1
+  address: tcp://*:5556
   isRunning: 0
-  isClientConnected: 0
 --- !u!4 &1243721139
 Transform:
   m_ObjectHideFlags: 0

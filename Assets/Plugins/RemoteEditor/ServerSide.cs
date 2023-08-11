@@ -38,7 +38,7 @@ namespace RemoteEditor
                 HashSet<RoutingKey> clients = new HashSet<RoutingKey>();
                 RoutingKey lastClient;
 
-                using (server = new RouterSocket(address.Split(':').First() + "://127.0.0.1:" + address.Split(':').Last()))
+                using (server = new RouterSocket(address))
                 {
                     Task sendTask = Task.Factory.StartNew(() =>
                     {

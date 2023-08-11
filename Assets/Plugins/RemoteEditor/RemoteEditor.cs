@@ -32,6 +32,8 @@ namespace RemoteEditor
         private ServerSide serverSide;
         private ClientSide clientSide;
 
+        private NetMQRuntime runtime;
+
         void Start()
         {
             DontDestroyOnLoad(gameObject);
@@ -55,7 +57,7 @@ namespace RemoteEditor
 
             Task.Factory.StartNew(() =>
             {
-                using (var runtime = new NetMQRuntime())
+                using (runtime = new NetMQRuntime())
                 {
                     isRunning = true;
 
@@ -69,6 +71,7 @@ namespace RemoteEditor
                     }
 
                     runtime.Run(cts.Token, tasks.ToArray());
+
                 }
             }, cts.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
@@ -78,6 +81,7 @@ namespace RemoteEditor
             isRunning = false;
             cts.Cancel();
             NetMQConfig.Cleanup(false);
+            runtime?.Dispose();
         }
     }
 }
