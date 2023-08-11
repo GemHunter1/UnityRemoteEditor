@@ -15,7 +15,6 @@ namespace RemoteEditor.Messages
         public int width;
         public int height;
         public TextureFormat format;
-        public bool alphaIsTransparency;
         public int anisoLevel;
         public FilterMode filterMode;
         public TextureWrapMode wrapMode;
@@ -31,7 +30,6 @@ namespace RemoteEditor.Messages
             width = tex.width;
             height = tex.height;
             format = tex.format;
-            alphaIsTransparency = tex.alphaIsTransparency;
             anisoLevel = tex.anisoLevel;
             filterMode = tex.filterMode;
             wrapMode = tex.wrapMode;
@@ -49,7 +47,6 @@ namespace RemoteEditor.Messages
 
             Texture2D tex = new Texture2D(width, height, format, false);
             tex.name = instanceID + " " + name;
-            tex.alphaIsTransparency = alphaIsTransparency;
             tex.anisoLevel = anisoLevel;
             tex.wrapMode = wrapMode;
             tex.filterMode = filterMode;
@@ -109,7 +106,6 @@ namespace RemoteEditor.Messages
             writer.Write(width);
             writer.Write(height);
             writer.Write((int)format);
-            writer.Write(alphaIsTransparency);
             writer.Write(anisoLevel);
             writer.Write((int)filterMode);
             writer.Write((int)wrapMode);
@@ -124,7 +120,6 @@ namespace RemoteEditor.Messages
             width = reader.ReadInt32();
             height = reader.ReadInt32();
             format = (TextureFormat)reader.ReadInt32();
-            alphaIsTransparency = reader.ReadBoolean();
             anisoLevel = reader.ReadInt32();
             filterMode = (FilterMode)reader.ReadInt32();
             wrapMode = (TextureWrapMode)reader.ReadInt32();
